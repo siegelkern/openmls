@@ -392,6 +392,23 @@ impl MlsGroup {
             .map(|leaf| leaf.credential())
     }
 
+    /// Returns the [`Member`] at `leaf_index` in the tree of `epoch`: the group's own tree for its
+    /// current epoch, otherwise the tree of a past epoch the group keeps. Returns `None` if the
+    /// group keeps no such epoch or the epoch's tree has no member at that index.
+    pub fn member_at_epoch(
+        &self,
+        epoch: crate::group::GroupEpoch,
+        leaf_index: LeafNodeIndex,
+    ) -> Option<Member> {
+        if epoch == self.context().epoch() {
+            return self.member_at(leaf_index);
+        }
+        self.message_secrets_store
+            .leaves_for_epoch(epoch)
+            .get(&leaf_index)
+            .map(|m| (*m).clone())
+    }
+
     /// Returns the [`Member`] corresponding to the given
     /// leaf index. Returns `None` if the member can not be found in this group.
     pub fn member_at(&self, leaf_index: LeafNodeIndex) -> Option<Member> {
