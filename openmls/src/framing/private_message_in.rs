@@ -13,6 +13,7 @@ use crate::{
     binary_tree::array_representation::LeafNodeIndex,
     error::LibraryError,
     framing::mls_content_in::FramedContentIn,
+    schedule::message_secrets::DecryptionSecrets,
     tree::{
         secret_tree::{PendingRatchetUpdate, SecretType},
         sender_ratchet::SenderRatchetConfiguration,
@@ -69,7 +70,7 @@ impl PrivateMessageIn {
     /// Decrypt the sender data from this [`PrivateMessageIn`].
     pub(crate) fn sender_data(
         &self,
-        message_secrets: &MessageSecrets,
+        message_secrets: &impl DecryptionSecrets,
         crypto: &impl OpenMlsCrypto,
         ciphersuite: Ciphersuite,
     ) -> Result<MlsSenderData, MessageDecryptionError> {
@@ -175,7 +176,7 @@ impl PrivateMessageIn {
         &self,
         ciphersuite: Ciphersuite,
         crypto: &impl OpenMlsCrypto,
-        message_secrets: &mut MessageSecrets,
+        message_secrets: &mut impl DecryptionSecrets,
         sender_index: LeafNodeIndex,
         sender_ratchet_configuration: &SenderRatchetConfiguration,
         sender_data: MlsSenderData,

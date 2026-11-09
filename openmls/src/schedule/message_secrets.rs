@@ -7,6 +7,27 @@ use web_time::SystemTime;
 
 use super::*;
 
+/// The parts of an epoch's secrets that decrypting a PrivateMessage reads.
+pub(crate) trait DecryptionSecrets {
+    fn sender_data_secret(&self) -> &SenderDataSecret;
+    fn serialized_context(&self) -> &[u8];
+    fn secret_tree_mut(&mut self) -> &mut SecretTree;
+}
+
+impl DecryptionSecrets for MessageSecrets {
+    fn sender_data_secret(&self) -> &SenderDataSecret {
+        MessageSecrets::sender_data_secret(self)
+    }
+
+    fn serialized_context(&self) -> &[u8] {
+        MessageSecrets::serialized_context(self)
+    }
+
+    fn secret_tree_mut(&mut self) -> &mut SecretTree {
+        MessageSecrets::secret_tree_mut(self)
+    }
+}
+
 /// Combined message secrets that need to be stored for later decryption/verification
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "test-utils"), derive(Clone))]
@@ -75,6 +96,13 @@ impl MessageSecrets {
     /// Get a reference to the message secrets's serialized context.
     pub(crate) fn serialized_context(&self) -> &[u8] {
         self.serialized_context.as_ref()
+    }
+
+    /// The epoch's `encryption_secret`, as long as the secret tree has not
+    /// derived anything from it.
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn encryption_secret(&self) -> Option<&Secret> {
+        self.secret_tree.root_secret()
     }
 
     /// Get a mutable reference to the message secrets's secret tree.

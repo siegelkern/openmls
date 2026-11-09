@@ -666,6 +666,11 @@ pub(crate) struct EncryptionSecret {
 }
 
 impl EncryptionSecret {
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn from_secret(secret: Secret) -> Self {
+        Self { secret }
+    }
+
     /// Derive an encryption secret from a reference to an `EpochSecret`.
     fn new(
         crypto: &impl OpenMlsCrypto,
@@ -988,6 +993,16 @@ pub(crate) struct SenderDataSecret {
 }
 
 impl SenderDataSecret {
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn from_secret(secret: Secret) -> Self {
+        Self { secret }
+    }
+
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn secret(&self) -> &Secret {
+        &self.secret
+    }
+
     /// Derive an `ExporterSecret` from an `EpochSecret`.
     fn new(
         crypto: &impl OpenMlsCrypto,

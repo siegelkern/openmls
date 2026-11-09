@@ -134,6 +134,10 @@ pub enum PublicProcessMessageError {
     /// The message's wire format is incompatible with the group's wire format policy.
     #[error("The message's wire format is incompatible with the group's wire format policy.")]
     IncompatibleWireFormat,
+    /// The epoch read secrets belong to another group, epoch or ciphersuite.
+    #[cfg(feature = "epoch-read-secrets")]
+    #[error("The epoch read secrets belong to another group, epoch or ciphersuite.")]
+    EpochSecretsMismatch,
     /// See [`ValidationError`] for more details.
     #[error(transparent)]
     ValidationError(#[from] ValidationError),

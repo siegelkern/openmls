@@ -35,7 +35,12 @@ pub use mls_group::staged_commit::StagedCommit;
 pub use mls_group::{Member, *};
 pub use public_group::*;
 
+#[cfg(feature = "epoch-read-secrets")]
+pub use epoch_read_secrets::EpochReadSecrets;
+
 // Private
+#[cfg(feature = "epoch-read-secrets")]
+mod epoch_read_secrets;
 #[cfg(feature = "fork-resolution")]
 mod fork_resolution;
 mod group_context;

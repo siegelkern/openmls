@@ -85,6 +85,11 @@ crypto-debug = [
     "openmls_traits/crypto-debug",
 ] # ☣️ Enable logging of sensitive cryptographic information
 content-debug = [] # ☣️ Enable logging of sensitive message content
+# Hand out an epoch's read secrets and decrypt with them in a `PublicGroup`.
+# ☣️ Whoever holds an epoch's read secrets can do with the epoch's
+# PrivateMessages what a member of the epoch can: read them all, also after
+# the members deleted their keys, and send copies of them.
+epoch-read-secrets = []
 js = [
     "dep:getrandom",
     "dep:web-time",

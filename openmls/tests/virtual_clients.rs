@@ -4584,3 +4584,192 @@ fn propose_self_update_with_new_signer_unconfirmed_flow() {
         )
         .expect("confirm update proposal");
 }
+
+/// Epoch read secrets read a virtual client's messages: two emulator clients
+/// share one leaf, Bob collects the read secrets from the commits he
+/// processes, and a reader that took part in neither epoch reads the virtual
+/// client's and Bob's messages with them, across a VC commit.
+#[cfg(feature = "epoch-read-secrets")]
+#[openmls_test]
+fn epoch_read_secrets_read_a_virtual_clients_messages() {
+    use openmls::credentials::{BasicCredential, CredentialWithKey};
+    use openmls::prelude::{
+        LeafNodeLifetimePolicy, MlsMessageBodyIn, MlsMessageIn, MlsMessageOut, ProposalStore,
+        PublicGroup, Sender,
+    };
+    use tls_codec::{Deserialize as _, Serialize as _};
+
+    let alice_a_provider = Provider::default();
+    let alice_b_provider = Provider::default();
+    let bob_provider = Provider::default();
+    let reader_provider = Provider::default();
+
+    let vc_signer = SignatureKeyPair::new(ciphersuite.signature_algorithm()).unwrap();
+    vc_signer.store(alice_a_provider.storage()).unwrap();
+    vc_signer.store(alice_b_provider.storage()).unwrap();
+    let vc_credential = CredentialWithKey {
+        credential: BasicCredential::new(b"Alice (VC)".to_vec()).into(),
+        signature_key: vc_signer.public().into(),
+    };
+    let (bob_credential, bob_signer) =
+        new_credential(&bob_provider, b"Bob", ciphersuite.signature_algorithm());
+
+    let mut alice_a_main = new_vc_main_group(
+        ciphersuite,
+        &alice_a_provider,
+        &vc_signer,
+        vc_credential.clone(),
+    );
+    let bob_kp = KeyPackage::builder()
+        .build(ciphersuite, &bob_provider, &bob_signer, bob_credential)
+        .unwrap()
+        .key_package()
+        .to_owned();
+    let (_, welcome, _) = alice_a_main
+        .add_members(&alice_a_provider, &vc_signer, &[bob_kp])
+        .unwrap();
+    alice_a_main
+        .merge_pending_commit(&alice_a_provider)
+        .unwrap();
+    let mut bob_main = StagedWelcome::new_from_welcome(
+        &bob_provider,
+        &vc_join_config(),
+        welcome.into_welcome().unwrap(),
+        Some(alice_a_main.export_ratchet_tree().into()),
+    )
+    .and_then(|s| s.into_group(&bob_provider))
+    .unwrap();
+
+    // Two emulator clients for Alice; alice_b resyncs into the main group.
+    let (siblings, resync) = join_sibling_emulator(
+        ciphersuite,
+        &alice_a_provider,
+        &alice_b_provider,
+        &vc_signer,
+        vc_credential,
+        &alice_a_main,
+        vc_join_config(),
+    );
+    let SiblingEmulators {
+        mut emulator_a,
+        mut alice_b_main,
+        ..
+    } = siblings;
+
+    // Bob keeps the read secrets of each epoch from the commit he processes.
+    let mut kept = std::collections::BTreeMap::new();
+    let mut deliver =
+        |group: &mut MlsGroup, provider: &Provider, commit: &MlsMessageOut, keep: bool| {
+            let processed = group
+                .process_message(provider, commit.clone().into_protocol_message().unwrap())
+                .unwrap();
+            let ProcessedMessageContent::StagedCommitMessage(staged) = processed.into_content()
+            else {
+                panic!("expected a commit")
+            };
+            if keep {
+                let secrets = staged.epoch_read_secrets().unwrap();
+                kept.insert(secrets.epoch().as_u64(), secrets);
+            }
+            group.merge_staged_commit(provider, *staged).unwrap();
+        };
+    deliver(&mut alice_a_main, &alice_a_provider, &resync, false);
+    deliver(&mut bob_main, &bob_provider, &resync, true);
+    let start_epoch = bob_main.epoch().as_u64();
+
+    // The archive starts here: Bob uploads the GroupInfo and tree.
+    let start_group_info = bob_main
+        .export_group_info(bob_provider.crypto(), &bob_signer, false)
+        .unwrap()
+        .tls_serialize_detached()
+        .unwrap();
+    let start_tree = bob_main.export_ratchet_tree();
+    let mut archive: Vec<(bool, MlsMessageOut)> = Vec::new();
+
+    // In this epoch both emulator clients and Bob send.
+    let m = alice_a_main
+        .create_message(&alice_a_provider, &vc_signer, b"from alice_a")
+        .unwrap();
+    alice_b_main
+        .process_message(
+            &alice_b_provider,
+            m.clone().into_protocol_message().unwrap(),
+        )
+        .unwrap();
+    archive.push((true, m));
+    let m = alice_b_main
+        .create_message(&alice_b_provider, &vc_signer, b"from alice_b")
+        .unwrap();
+    archive.push((true, m));
+    let m = bob_main
+        .create_message(&bob_provider, &bob_signer, b"from bob")
+        .unwrap();
+    archive.push((true, m));
+
+    // A VC commit by alice_a, then one more message from the virtual client.
+    let (vc_commit, _) = send_vc_commit(
+        &mut alice_a_main,
+        &mut emulator_a,
+        &alice_a_provider,
+        &vc_signer,
+    );
+    deliver(&mut alice_b_main, &alice_b_provider, &vc_commit, false);
+    deliver(&mut bob_main, &bob_provider, &vc_commit, true);
+    archive.push((false, vc_commit));
+    let m = alice_b_main
+        .create_message(&alice_b_provider, &vc_signer, b"after the vc commit")
+        .unwrap();
+    archive.push((true, m));
+
+    // The reader replays from the start state with Bob's secrets.
+    let MlsMessageBodyIn::GroupInfo(group_info) =
+        MlsMessageIn::tls_deserialize_exact(&start_group_info)
+            .unwrap()
+            .extract()
+    else {
+        panic!("not a GroupInfo")
+    };
+    let (mut view, _) = PublicGroup::from_external(
+        reader_provider.crypto(),
+        reader_provider.storage(),
+        start_tree.into(),
+        group_info,
+        ProposalStore::new(),
+    )
+    .unwrap();
+    assert_eq!(view.group_context().epoch().as_u64(), start_epoch);
+    let mut read = Vec::new();
+    for (_, message) in archive {
+        let epoch = view.group_context().epoch().as_u64();
+        let secrets = kept.get_mut(&epoch).expect("secrets for the epoch");
+        let processed = view
+            .process_message_with_epoch_secrets(
+                reader_provider.crypto(),
+                message.into_protocol_message().unwrap(),
+                secrets,
+                LeafNodeLifetimePolicy::Skip,
+            )
+            .unwrap();
+        let sender = processed.sender().clone();
+        match processed.into_content() {
+            ProcessedMessageContent::ApplicationMessage(m) => {
+                read.push((epoch, sender, m.into_bytes()))
+            }
+            ProcessedMessageContent::StagedCommitMessage(staged) => view
+                .merge_commit(reader_provider.storage(), *staged)
+                .unwrap(),
+            _ => panic!("unexpected content"),
+        }
+    }
+    let vc_leaf = Sender::Member(alice_b_main.own_leaf_index());
+    let bob_leaf = Sender::Member(bob_main.own_leaf_index());
+    assert_eq!(
+        read,
+        vec![
+            (start_epoch, vc_leaf.clone(), b"from alice_a".to_vec()),
+            (start_epoch, vc_leaf.clone(), b"from alice_b".to_vec()),
+            (start_epoch, bob_leaf, b"from bob".to_vec()),
+            (start_epoch + 1, vc_leaf, b"after the vc commit".to_vec()),
+        ]
+    );
+}
