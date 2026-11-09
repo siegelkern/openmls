@@ -75,6 +75,8 @@ pub struct ExternalCommitBuilder {
     config: MlsGroupJoinConfig,
     validate_lifetimes: LeafNodeLifetimePolicy,
     aad: Vec<u8>,
+    #[cfg(feature = "extensions-draft")]
+    safe_aad: Option<crate::framing::SafeAad>,
 }
 
 impl MlsGroup {
@@ -122,6 +124,20 @@ impl ExternalCommitBuilder {
         self
     }
 
+    /// Specifies the Safe AAD items to be included in the external commit.
+    /// Items must be sorted by [`ComponentId`] in strictly-increasing order and
+    /// contain no duplicates.
+    ///
+    /// [`ComponentId`]: crate::component::ComponentId
+    #[cfg(feature = "extensions-draft")]
+    pub fn with_safe_aad(
+        mut self,
+        items: Vec<crate::framing::SafeAadItem>,
+    ) -> Result<Self, crate::framing::SafeAadError> {
+        self.safe_aad = Some(crate::framing::SafeAad::from_items(items)?);
+        Ok(self)
+    }
+
     /// Skip the validation of lifetimes in leaf nodes in the ratchet tree.
     /// Note that only the leaf nodes are checked that were never updated.
     ///
@@ -159,6 +175,8 @@ impl ExternalCommitBuilder {
             mut config,
             aad,
             validate_lifetimes,
+            #[cfg(feature = "extensions-draft")]
+            safe_aad,
         } = self;
 
         let group_ciphersuite = verifiable_group_info.ciphersuite();
@@ -306,7 +324,7 @@ impl ExternalCommitBuilder {
             own_leaf_nodes: vec![],
             aad: vec![],
             #[cfg(feature = "extensions-draft")]
-            safe_aad: crate::framing::SafeAad::empty(),
+            safe_aad: safe_aad.unwrap_or_else(crate::framing::SafeAad::empty),
             group_state: MlsGroupState::Operational,
             public_group,
             group_epoch_secrets,

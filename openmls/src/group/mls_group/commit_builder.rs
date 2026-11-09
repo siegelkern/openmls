@@ -970,11 +970,8 @@ impl<'a, G: BorrowMut<MlsGroup>> CommitBuilder<'a, LoadedPsks, G> {
                     // bare `aad` would be rejected by SafeAAD-aware receivers.
                     #[cfg(feature = "extensions-draft")]
                     let aad_bytes = if group.context().safe_aad_required() {
-                        crate::framing::safe_aad::assemble_authenticated_data(
-                            &crate::framing::SafeAad::empty(),
-                            aad,
-                        )
-                        .map_err(|_| LibraryError::custom("SafeAad serialization failed"))?
+                        crate::framing::safe_aad::assemble_authenticated_data(&group.safe_aad, aad)
+                            .map_err(|_| LibraryError::custom("SafeAad serialization failed"))?
                     } else {
                         aad.clone()
                     };

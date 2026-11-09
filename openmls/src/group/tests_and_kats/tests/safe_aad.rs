@@ -379,3 +379,72 @@ fn safe_aad_rejects_malformed_inbound() {
         "unexpected error: {err:#?}"
     );
 }
+
+/// An external commit carries the Safe AAD items named with `with_safe_aad`.
+#[openmls_test::openmls_test]
+fn safe_aad_on_an_external_commit() {
+    let alice_provider = &Provider::default();
+    let bob_provider = &Provider::default();
+    let carol_provider = &Provider::default();
+    let (mut alice_group, _bob_group, alice_credential) = create_group_pair(
+        ciphersuite,
+        alice_provider,
+        bob_provider,
+        PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
+        true,
+    );
+    let group_info = alice_group
+        .export_group_info(alice_provider.crypto(), &alice_credential.signer, true)
+        .expect("group info");
+    let verifiable = MlsMessageIn::from(group_info)
+        .into_verifiable_group_info()
+        .expect("a group info");
+    let carol_credential = generate_credential_with_key(
+        "Carol".into(),
+        ciphersuite.signature_algorithm(),
+        carol_provider,
+    );
+    let items = vec![
+        SafeAadItem::new(3, b"three".to_vec()),
+        SafeAadItem::new(9, b"nine".to_vec()),
+    ];
+    let (_carol_group, bundle) = MlsGroup::external_commit_builder()
+        .with_safe_aad(items.clone())
+        .expect("ascending items")
+        .build_group(
+            carol_provider,
+            verifiable,
+            carol_credential.credential_with_key.clone(),
+        )
+        .expect("the external group")
+        .leaf_node_parameters(
+            LeafNodeParameters::builder()
+                .with_capabilities(safe_aad_capabilities())
+                .build(),
+        )
+        .load_psks(carol_provider.storage())
+        .expect("no psks")
+        .build(
+            carol_provider.rand(),
+            carol_provider.crypto(),
+            &carol_credential.signer,
+            |_| true,
+        )
+        .expect("the external commit")
+        .finalize(carol_provider)
+        .expect("finalized");
+    let commit: MlsMessageIn = bundle.into_commit().into();
+    let processed = alice_group
+        .process_message(alice_provider, commit.into_protocol_message().unwrap())
+        .expect("the member processes the external commit");
+    let safe_aad = processed.safe_aad().expect("Safe AAD present");
+    assert_eq!(safe_aad.items(), items.as_slice());
+    assert!(processed.tail_aad().is_empty());
+
+    assert!(MlsGroup::external_commit_builder()
+        .with_safe_aad(vec![
+            SafeAadItem::new(9, Vec::new()),
+            SafeAadItem::new(3, Vec::new()),
+        ])
+        .is_err());
+}
