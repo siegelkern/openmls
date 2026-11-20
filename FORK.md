@@ -47,6 +47,7 @@ Update this table with every change to a release branch and with every new relea
 | Safe AAD items in external commits: `ExternalCommitBuilder::with_safe_aad` | Change | Proposed as a pull request. |
 | A member of a past epoch's tree: `MlsGroup::member_at_epoch` | Change | Not proposed yet. |
 | Epoch read secrets, feature `epoch-read-secrets`: `StagedCommit::epoch_read_secrets`, `MlsGroup::epoch_read_secrets`, `PublicGroup::process_message_with_epoch_secrets` | Change | Not proposed. Behind its feature flag; without it, an internal trait in the decryption path is the only difference. |
+| ML-DSA key generation, signing and verification in functions of their own (`RustCrypto`), so the other signature schemes no longer reserve the ML-DSA stack | Change | Proposed as a pull request. |
 
 ## Lifecycle of a change
 
