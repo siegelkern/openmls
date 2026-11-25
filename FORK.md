@@ -46,6 +46,7 @@ Update this table with every change to a release branch and with every new relea
 | Safe AAD items in external commits: `ExternalCommitBuilder::with_safe_aad` | Change | Proposed as a pull request. |
 | A member of a past epoch's tree: `MlsGroup::member_at_epoch` | Change | Not proposed yet. |
 | Epoch read secrets, feature `epoch-read-secrets`: `StagedCommit::epoch_read_secrets`, `MlsGroup::epoch_read_secrets`, `PublicGroup::process_message_with_epoch_secrets` | Change | Not proposed. Behind its feature flag; without it, an internal trait in the decryption path is the only difference. |
+| The NIST hybrid ciphersuites at the code points draft-ietf-mls-pq-ciphersuites-07 requests: `MLS_128_MLKEM768P256_AES256GCM_SHA384_P256` at 0x0013 and `MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384` at 0x0014, instead of 0xF051 and 0xF052 | Change | Raised upstream in an issue. |
 
 ## Lifecycle of a change
 
