@@ -505,15 +505,17 @@ pub enum Ciphersuite {
 
     /// ML-KEM768 + P-256 | AES-GCM256 | SHA2-384 | EcDSA P256
     ///
-    /// [draft-ietf-mls-pq-ciphersuites] TBD4 (custom provisional code point)
+    /// [draft-ietf-mls-pq-ciphersuites] TBD4, at the code point the draft requests (not yet
+    /// registered with IANA)
     ///
     /// [draft-ietf-mls-pq-ciphersuites]: https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites
     #[cfg(feature = "draft-ietf-mls-pq-ciphersuites")]
-    MLS_128_MLKEM768P256_AES256GCM_SHA384_P256 = 0xF051,
+    MLS_128_MLKEM768P256_AES256GCM_SHA384_P256 = 0x0013,
 
     /// ML-KEM1024 + P-384 | AES-GCM256 | SHA2-384 | EcDSA P384
     ///
-    /// [draft-ietf-mls-pq-ciphersuites] TBD5 (custom provisional code point)
+    /// [draft-ietf-mls-pq-ciphersuites] TBD5, at the code point the draft requests (not yet
+    /// registered with IANA)
     ///
     /// Not supported by any of the OpenMLS crypto providers yet: libcrux has no
     /// ECDSA P-384 implementation and the RustCrypto HPKE backend has no
@@ -521,7 +523,7 @@ pub enum Ciphersuite {
     ///
     /// [draft-ietf-mls-pq-ciphersuites]: https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites
     #[cfg(feature = "draft-ietf-mls-pq-ciphersuites")]
-    MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384 = 0xF052,
+    MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384 = 0x0014,
 
     /// ML-KEM768 | AES-GCM256 | SHA2-384 | Ed25519
     ///
@@ -738,8 +740,8 @@ impl Ciphersuite {
             0x004F => Self::MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519,
             0x004E => Self::MLS_128_MLKEM768X25519_AES256GCM_SHA384_Ed25519,
             0xF050 => Self::MLS_128_MLKEM768P256_AES128GCM_SHA256_P256,
-            0xF051 => Self::MLS_128_MLKEM768P256_AES256GCM_SHA384_P256,
-            0xF052 => Self::MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384,
+            0x0013 => Self::MLS_128_MLKEM768P256_AES256GCM_SHA384_P256,
+            0x0014 => Self::MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384,
             0xF042 => Self::MLS_128_MLKEM768_AES256GCM_SHA384_Ed25519,
             0x0050 => Self::MLS_128_MLKEM768_AES256GCM_SHA384_P256,
             0x0042 => Self::MLS_192_MLKEM1024_AES256GCM_SHA384_P384,
@@ -852,5 +854,26 @@ mod tests {
             7
         };
         assert_eq!(decoded, expected);
+    }
+
+    #[cfg(feature = "draft-ietf-mls-pq-ciphersuites")]
+    #[test]
+    fn nist_hybrid_code_points() {
+        let suites = [
+            (
+                0x0013,
+                Ciphersuite::MLS_128_MLKEM768P256_AES256GCM_SHA384_P256,
+            ),
+            (
+                0x0014,
+                Ciphersuite::MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384,
+            ),
+        ];
+        for (v, ciphersuite) in suites {
+            assert_eq!(Ciphersuite::try_from(v), Ok(ciphersuite));
+            assert_eq!(u16::from(ciphersuite), v);
+        }
+        assert!(Ciphersuite::try_from(0xF051).is_err());
+        assert!(Ciphersuite::try_from(0xF052).is_err());
     }
 }
