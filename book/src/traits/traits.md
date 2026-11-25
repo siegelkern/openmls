@@ -31,15 +31,16 @@ Supported ciphersuites
 **Post-quantum ciphersuites**
 With the `draft-ietf-mls-pq-ciphersuites` feature, both providers additionally
 support ciphersuites from [draft-ietf-mls-pq-ciphersuites]. The draft has no
-IANA code points yet, so OpenMLS uses provisional ones that may change.
+IANA code points yet. TBD4 and TBD5 use the code points the draft requests, the
+others provisional ones; all of them may change.
 
 | Draft | Ciphersuite                                            | Code point | Rust Crypto | Libcrux |
 | ----- | ------------------------------------------------------ | ---------- | ----------- | ------- |
 | TBD1  | MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519        | 0x004F     | ✓           | ✓       |
 | TBD2  | MLS_128_MLKEM768X25519_AES256GCM_SHA384_Ed25519        | 0x004E     | ✓           | ✓       |
 | TBD3  | MLS_128_MLKEM768P256_AES128GCM_SHA256_P256             | 0xF050     | ✗ (1)       | ✓       |
-| TBD4  | MLS_128_MLKEM768P256_AES256GCM_SHA384_P256             | 0xF051     | ✗ (1)       | ✓       |
-| TBD5  | MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384            | 0xF052     | ✗ (1)       | ✗ (2)   |
+| TBD4  | MLS_128_MLKEM768P256_AES256GCM_SHA384_P256             | 0x0013     | ✗ (1)       | ✓       |
+| TBD5  | MLS_192_MLKEM1024P384_AES256GCM_SHA384_P384            | 0x0014     | ✗ (1)       | ✗ (2)   |
 | TBD6  | MLS_128_MLKEM768_AES256GCM_SHA384_Ed25519              | 0xF042     | ✓           | ✓       |
 | TBD7  | MLS_128_MLKEM768_AES256GCM_SHA384_P256                 | 0x0050     | ✓           | ✓       |
 | TBD8  | MLS_192_MLKEM1024_AES256GCM_SHA384_P384                | 0x0042     | ✓           | ✗ (2)   |
