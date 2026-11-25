@@ -252,6 +252,56 @@ impl DecryptedMessage {
         })
     }
 
+    /// Constructs a [DecryptedMessage] from a [PrivateMessage] with the read
+    /// secrets of its epoch. No leaf belongs to the reader, so every message is
+    /// decrypted as one from another member. The returned update consumes the
+    /// message's generation in the secrets' tree once the message has been
+    /// processed.
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn from_inbound_ciphertext_with_read_secrets(
+        ciphertext: PrivateMessageIn,
+        crypto: &impl OpenMlsCrypto,
+        ciphersuite: Ciphersuite,
+        secrets: &mut impl crate::schedule::message_secrets::DecryptionSecrets,
+        sender_ratchet_configuration: &SenderRatchetConfiguration,
+    ) -> Result<(Self, PendingRatchetUpdate), ValidationError> {
+        let sender_data = ciphertext.sender_data(secrets, crypto, ciphersuite)?;
+        let (decryption_secret, ratchet_update) = secrets
+            .secret_tree_mut()
+            .prepare_decryption(
+                ciphersuite,
+                crypto,
+                sender_data.leaf_index,
+                SecretType::from(&ciphertext.content_type()),
+                sender_data.generation,
+                sender_ratchet_configuration,
+            )
+            .map_err(MessageDecryptionError::SecretTreeError)?;
+        // Every ratchet of the reader is a decryption ratchet, which always
+        // returns the key and its update.
+        let (DecryptionSecret::Available(ratchet_key_material), Some(ratchet_update)) =
+            (decryption_secret, ratchet_update)
+        else {
+            return Err(
+                LibraryError::custom("a reader's ratchet is not a decryption ratchet").into(),
+            );
+        };
+        let decrypted = ciphertext.to_verifiable_content(
+            crypto,
+            secrets,
+            ratchet_key_material,
+            sender_data,
+            #[cfg(feature = "virtual-clients-draft")]
+            None,
+        )?;
+        let message = Self::from_verifiable_content(
+            decrypted.verifiable,
+            #[cfg(feature = "virtual-clients-draft")]
+            decrypted.emulator_sender_leaf_index,
+        )?;
+        Ok((message, ratchet_update))
+    }
+
     // Internal constructor function. Does the following checks:
     // - Confirmation tag must be present for Commit messages
     // - Membership tag must be present for member messages, if the original incoming message was not an PrivateMessage

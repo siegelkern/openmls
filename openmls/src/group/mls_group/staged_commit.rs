@@ -1162,6 +1162,18 @@ impl StagedCommit {
             StagedCommitState::GroupMember(ref gm) => gm.group_context(),
         }
     }
+    /// The new epoch's group context and message secrets, if a member staged
+    /// this commit.
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn member_message_secrets(&self) -> Option<(&GroupContext, &MessageSecrets)> {
+        match self.state {
+            StagedCommitState::GroupMember(ref gm) => {
+                Some((gm.group_context(), &gm.message_secrets))
+            }
+            StagedCommitState::PublicState(_) => None,
+        }
+    }
+
     /// Consume this [`StagedCommit`] and return the internal [`StagedCommitState`].
     pub(crate) fn into_state(self) -> StagedCommitState {
         self.state

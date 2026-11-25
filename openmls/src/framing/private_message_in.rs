@@ -13,7 +13,7 @@ use super::{
 use crate::binary_tree::array_representation::LeafNodeIndex;
 use crate::{
     error::LibraryError, framing::mls_content_in::FramedContentIn,
-    tree::sender_ratchet::RatchetKeyMaterial,
+    schedule::message_secrets::DecryptionSecrets, tree::sender_ratchet::RatchetKeyMaterial,
 };
 
 use super::*;
@@ -63,7 +63,7 @@ impl PrivateMessageIn {
     /// Decrypt the sender data from this [`PrivateMessageIn`].
     pub(crate) fn sender_data(
         &self,
-        message_secrets: &MessageSecrets,
+        message_secrets: &impl DecryptionSecrets,
         crypto: &impl OpenMlsCrypto,
         ciphersuite: Ciphersuite,
     ) -> Result<MlsSenderData, MessageDecryptionError> {
@@ -164,7 +164,7 @@ impl PrivateMessageIn {
     pub(crate) fn to_verifiable_content(
         &self,
         crypto: &impl OpenMlsCrypto,
-        message_secrets: &MessageSecrets,
+        message_secrets: &impl DecryptionSecrets,
         ratchet_key_material: RatchetKeyMaterial,
         sender_data: MlsSenderData,
         #[cfg(feature = "virtual-clients-draft")] emulator_ctx: Option<

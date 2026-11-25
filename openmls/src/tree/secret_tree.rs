@@ -233,6 +233,16 @@ impl SecretTree {
         self.own_index
     }
 
+    /// The epoch's `encryption_secret`, which the root holds until the first
+    /// secret of the epoch is derived.
+    #[cfg(feature = "epoch-read-secrets")]
+    pub(crate) fn root_secret(&self) -> Option<&Secret> {
+        self.get_node(root(self.size))
+            .ok()
+            .flatten()
+            .map(|node| &node.secret)
+    }
+
     /// Get current generation for a specific SenderRatchet
     #[cfg(test)]
     pub(crate) fn generation(&self, index: LeafNodeIndex, secret_type: SecretType) -> u32 {
